@@ -10,7 +10,7 @@ def numericalSort(value):
     parts[1::2] = map(int, parts[1::2])
     return parts
 
-DIR = r'e:\Simulated_1D_grid\Augmented_fire_simulation_1D\Batch-1'
+DIR = r'e:\Simulated_1D_grid\Augmented_fire_simulation\Batch-1'
 
 
 folders = os.listdir(DIR)

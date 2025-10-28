@@ -17,6 +17,7 @@ from typing import Tuple, Union
 from math import sin, cos, atan2, sqrt
 import time
 from augmentation import *
+import tifffile
 
 Number = Union[int, float]
 Vector = Tuple[Number, Number, Number]
@@ -30,10 +31,9 @@ class SimulationRunner:
         # Initialize file paths and directories
         self.world_file_in = "../worlds/example_photo_shoot.sdf"
         self.world_file_out = "../../photo_shoot.sdf"
-        self.output_directory = "/media/haitham/046C27CA6C27B578/Simulated_2D_grid/Batch-2" 
+        # self.output_directory = "/home/haitham/Desktop/WildFire/Results/" 
+        self.output_directory = "/media/haitham/046C27CA6C27B578/Simulated_2D_grid/Batch-1" 
         
-        self.database_dir = "../../Desktop/WildFire/env_temp_dataset" 
-
         # Load the initial world configuration
         self.world_config = WorldConfig()
         self.world_config.load(self.world_file_in)
@@ -57,8 +57,8 @@ class SimulationRunner:
         self.test_seed = 0
     def run(self):
         for i in range(self.iter_Number):
-            random.seed(i + 599326232)
-            self.test_seed = i + 599326232
+            random.seed(i + 9258852)
+            self.test_seed = i + 9258852
 
             self.iteration = i
             # Reload world_config for each iteration
@@ -73,6 +73,7 @@ class SimulationRunner:
             self.get_min_max_temp()
 
             # Configure the simulation components
+
             self.configure_light_and_scene()
             self.configure_photo_shoot(i)
             
@@ -104,13 +105,11 @@ class SimulationRunner:
         Returns:
             None
         """
+
         # Load the 32-bit image as a NumPy array
         image = Image.open(os.path.join(self.thermal_texture_dir_env_tif, image_path))
         if self.non_uniform <= 7:
             self.random_texture = 1
-            # random.randint(0, 1)
-
-            # self.non_uniform += 1 mona
         else:
             self.random_texture = 0
             self.uniform += 1
@@ -119,10 +118,6 @@ class SimulationRunner:
             self.uniform = 1
             self.non_uniform = 1
 
-
-
-
-        print(self.random_texture)
         if self.random_texture:
             self.normal_texture_count += 1
             amb_temp = 9
@@ -141,7 +136,7 @@ class SimulationRunner:
         else:
             self.uniform_texture_count += 1
             img = np.zeros((512,512)).astype(np.float32)
-            temp_value = ((self.x_rand_Tree_C - 3))
+            temp_value = ((self.x_rand_Tree_C - 0))
             for i in range(512):
                 for j in range(512):
                     img[i, j] = temp_value
@@ -168,6 +163,132 @@ class SimulationRunner:
         image = cropped_image
         
         image_data = (np.array(image, dtype=np.float32) + 273.15) * 100  # 0 - 65535
+
+        #mona
+        image_data[image_data > 65535] = 65535
+
+
+        original_size = (512, 512)
+        padded_size = (534, 534)
+
+        # Calculate padding sizes
+        pad_top = (padded_size[0] - original_size[0]) // 2
+        pad_bottom = padded_size[0] - original_size[0] - pad_top
+        pad_left = (padded_size[1] - original_size[1]) // 2
+        pad_right = padded_size[1] - original_size[1] - pad_left
+
+        # Pad the image with zeros (black)
+        padded_image1 = np.pad(
+            image_data.astype(np.uint16),
+            pad_width=((pad_top, pad_bottom), (pad_left, pad_right)),
+            mode='constant',
+            constant_values=0
+        )
+
+        original_size = (534, 534)
+        padded_size = (856, 856) # was 856 before
+
+        # Calculate padding sizes
+        pad_top = (padded_size[0] - original_size[0]) // 2
+        pad_bottom = padded_size[0] - original_size[0] - pad_top
+        pad_left = (padded_size[1] - original_size[1]) // 2
+        pad_right = padded_size[1] - original_size[1] - pad_left
+
+        # Pad the image with zeros (black)
+        padded_image = np.pad(
+            padded_image1.astype(np.uint16),
+            pad_width=((pad_top, pad_bottom), (pad_left, pad_right)),
+            mode='constant',
+            constant_values=0
+        )
+        # print(f"Original shape: {image_data.shape}, Padded shape: {padded_image.shape}")
+        # print(f"Padded image dtype: {padded_image.dtype}")
+
+        # Convert to 16-bit integers
+        if self.random_texture:
+            image_16bit = padded_image.astype(np.uint16) 
+        else:
+            image_16bit = padded_image.astype(np.uint16) 
+        
+        # Rotate the image 90 degrees to the right (clockwise)
+        image_rotated = np.rot90(image_16bit, k=-1)  # k=-1 for clockwise rotation
+
+        image_transformed = np.flipud(image_rotated)
+
+        # Save the image
+        Image.fromarray(image_transformed).save(self.thermal_texture_dir+"/ground_000_thermal.png")
+        print(f"32-bit image converted to 16-bit and saved to {self.thermal_texture_dir}")
+
+        #################################################################
+        """
+        # Path to your folder containing the 32,000 images
+        image_folder = r"/media/haitham/046C27CA6C27B578/WildFire generated data/synthetic/crops_16x16"   # change this to your folder path
+
+        # Parameters
+        tile_size = 16
+        output_size = 512
+        tiles_per_side = output_size // tile_size
+        total_tiles = tiles_per_side * tiles_per_side  # 4096
+
+        # Get list of image files
+        image_files = [f for f in os.listdir(image_folder) if f.lower().endswith(('.tif', '.tiff'))]
+
+        print(f"Found {len(image_files)} images in folder.")
+
+        if len(image_files) < total_tiles:
+            raise ValueError(f"Not enough images to create a {output_size}x{output_size} mosaic. "
+                            f"Need {total_tiles}, but found {len(image_files)}.")
+
+        # Randomly select 4096 images
+        selected_files = random.sample(image_files, total_tiles)
+
+        # Create empty canvas
+        mosaic = np.zeros((output_size, output_size), dtype=np.float32)
+
+        # Fill the mosaic
+        idx = 0
+        for i in range(tiles_per_side):
+            for j in range(tiles_per_side):
+                img_path = os.path.join(image_folder, selected_files[idx])
+                
+                # Read float32 tile
+                tile = tifffile.imread(img_path).astype(np.float32)
+                
+                # Ensure it’s exactly 8x8
+                if tile.shape != (tile_size, tile_size):
+                    raise ValueError(f"Tile {img_path} has wrong size {tile.shape}, expected (8,8).")
+                
+                # Place into mosaic
+                mosaic[i*tile_size:(i+1)*tile_size, j*tile_size:(j+1)*tile_size] = tile
+                
+                idx += 1
+        # output_file = r"/media/haitham/046C27CA6C27B578/Simulated_2D_grid/Augmented_fire_simulation/surface.tiff"
+
+        # tifffile.imwrite(output_file, mosaic, dtype=np.float32)
+        
+
+        self.normal_texture_count += 1
+        amb_temp = 9
+        max_sun_temp_inc = 15
+        self.mosaic = mosaic
+
+        new_img = amb_temp_aug(
+        torch.from_numpy(mosaic), #Input Image
+        amb_temp, #our original amb temp which is 9
+        max_sun_temp_inc, # 15 degree
+        self.env_temperature, # choosen amb temp
+        )
+
+        image = Image.fromarray(new_img.cpu().numpy(), mode="F")
+        self.thermal_image_referance = image
+        # output_file = r"/media/haitham/046C27CA6C27B578/Simulated_2D_grid/Augmented_fire_simulation/surface.tiff"
+
+        # tifffile.imwrite(output_file, image, dtype=np.float32)
+        # ghgfhfh
+
+        image_data = (np.array(image, dtype=np.float32) + 273.15) * 100  # 0 - 65535
+        image_data[image_data > 65535] = 65535
+
 
         original_size = (512, 512)
         padded_size = (534, 534)
@@ -203,23 +324,20 @@ class SimulationRunner:
             constant_values=0
         )
 
-
-        # Convert to 16-bit integers
-        if self.random_texture:
-            image_16bit = padded_image.astype(np.uint16) 
-        else:
-            image_16bit = padded_image.astype(np.uint16) 
+        image_16bit = padded_image.astype(np.uint16) 
         
         # Rotate the image 90 degrees to the right (clockwise)
         image_rotated = np.rot90(image_16bit, k=-1)  # k=-1 for clockwise rotation
 
-
+        # print(f"Value at min index after rotation: {image_16bit[min_index]}")
+        # print(f"Value at max index after rotation: {image_16bit[max_index]}")
         image_transformed = np.flipud(image_rotated)
 
 
-        # Save the image
         Image.fromarray(image_transformed).save(self.thermal_texture_dir+"/ground_000_thermal.png")
         print(f"32-bit image converted to 16-bit and saved to {self.thermal_texture_dir}")
+        """
+        ##################################################################
 
     def convert_32bit_to_16bit_GT(self, image_path):
         """
@@ -232,6 +350,29 @@ class SimulationRunner:
         Returns:
             None
         """
+        ###########################
+        """
+        amb_temp = 9
+        max_sun_temp_inc = 15
+        upper_fire_thres_temp = 50
+              
+        new_img = amb_temp_aug(
+        torch.from_numpy(self.mosaic), #Input Image
+        amb_temp, #our original amb temp which is 9
+        max_sun_temp_inc, # 15 degree
+        self.env_temperature, # choosen amb temp
+        )
+        image = Image.fromarray(new_img.cpu().numpy()  , mode="F")
+        self.thermal_image_referance = image
+        new_fire_thres_temp = self.env_temperature + max_sun_temp_inc
+        tgt = build_semantic_segmentation_target(
+            torch.from_numpy(np.array(image) + round(self.direct_sun * math.cos(self.x_rand_Alpha))), new_fire_thres_temp, upper_fire_thres_temp
+        )
+        Image.fromarray(tgt.cpu().numpy()).save(self.patch_folder+"/label.png") 
+        
+        """
+        #####################################
+
         # Load the 32-bit image as a NumPy array
         image = Image.open(os.path.join(self.thermal_texture_dir_env_tif, image_path))
         
@@ -256,7 +397,13 @@ class SimulationRunner:
             Image.fromarray(tgt.cpu().numpy()).save(self.patch_folder+"/label.png") 
 
         else:
-           
+            
+            # img = np.zeros((512,512)).astype(np.float32)
+            # temp_value = ((self.env_temperature - 5.5))
+            # for i in range(512):
+            #     for j in range(512):
+            #         img[i, j] = temp_value
+
             image = Image.fromarray(self.normal_texture + round(self.direct_sun * math.cos(self.x_rand_Alpha_rad)) , mode="F")
             self.thermal_image_referance = image
 
@@ -265,44 +412,38 @@ class SimulationRunner:
                 torch.from_numpy(self.normal_texture + round(self.direct_sun * math.cos(self.x_rand_Alpha))) , new_fire_thres_temp, upper_fire_thres_temp
             )
             Image.fromarray(tgt.cpu().numpy()).save(self.patch_folder+"/label.png")
-    
-       
+        
+
     def generate_random_parameters(self):
         
         # Random Env Temp and get texture from folder
-        self.env_temperature = random.randint(0,30) # TODO: specify
-        # self.env_temperature = random.randrange(0, 33, 3) # TODO: specify
-        # self.thermal_texture_env_dir = f"{self.thermal_texture_dir}/{self.env_temperature}"
+        # self.env_temperature = random.randint(15,15)
+        self.env_temperature = random.randrange(0, 31, 1) 
         
+        # self.thermal_texture_env_dir = f"{self.thermal_texture_dir}/{self.env_temperature}"
         self.thermal_texture_env_dir = f"{self.thermal_texture_dir}"
         self.thermal_texture_dir_env_tif = f"{self.thermal_texture_dir_tif}"
-
 
         # Randomly select a thermal texture
         thermal_textures = [
             f for f in os.listdir(self.thermal_texture_dir_env_tif) if f.endswith(".TIF")
         ]
-        self.thermal_texture = random.choice(thermal_textures)
-
+        # self.thermal_texture = random.choice(thermal_textures)
+        self.thermal_texture = thermal_textures[self.iteration]
 
         # Number of trees per hectare (ha) 30 - 130
-        # self.x_rand_treeNum = random.randrange(30, 131, 10)
-        self.x_rand_treeNum = random.randint(30, 131)
-
+        self.x_rand_treeNum = random.randrange(30, 131, 10)
 
         # Direct lightsun effect 0-15
-
         self.direct_sun = random.randint(0, 15)
 
         # Azimuth angle of sunlight direction (Alpha) -90 - +90
         self.x_rand_Alpha = random.uniform(-90, 90)
         self.x_rand_Alpha_rad = math.radians(self.x_rand_Alpha)
-        # print("Azimuth angle (Alpha) in degrees =", self.x_rand_Alpha)
 
         # Compass direction of sunlight (Beta)
         self.x_rand_Beta = 90
         self.x_rand_Beta_rad = math.radians(self.x_rand_Beta)
-        # print("Compass direction (Beta) in degrees =", self.x_rand_Beta)
 
         # Convert spherical coordinates to Cartesian for light direction
         self.x_1, self.x_2, self.x_3 = self.to_cartesian(
@@ -310,13 +451,13 @@ class SimulationRunner:
         )
         if self.x_3 > 0:
             self.x_3 = -self.x_3  # Ensure sunlight comes from above
-        print(self.x_1, self.x_2, self.x_3)
 
         # Tree top temperature in degrees Celsius and convert to Kelvin
         self.x_rand_Tree_C = self.env_temperature + 0
         self.x_Tree_temp = self.x_rand_Tree_C + 273.15
 
     def get_min_max_temp(self):
+
         thermal_image = np.array(self.thermal_image_referance)
         thermal_image_C = thermal_image
         thermal_image_K = thermal_image + 273.15
@@ -325,9 +466,6 @@ class SimulationRunner:
         self.max_ground_temp_C = thermal_image_C.max()
         self.min_ground_temp_K = thermal_image_K.min()
         self.max_ground_temp_K = thermal_image_K.max()
-
-        print(f"Min Ground Temp: {self.min_ground_temp_C} C / {self.min_ground_temp_K} K")
-        print(f"Max Ground Temp: {self.max_ground_temp_C} C / {self.max_ground_temp_K} K ")
 
 
     def configure_light_and_scene(self):
@@ -339,8 +477,8 @@ class SimulationRunner:
 
     def configure_photo_shoot(self, i: int):
         person_config = PersonConfig()
-        person_config.set_model_pose("idle")                 # Must match a .dae mesh file                                # in the respective model!
-        person_config.set_temperature(293)                      # In Kelvin
+        person_config.set_model_pose("idle")       
+        person_config.set_temperature(293)                       
         person_config.set_pose(gzm.Pose3d(0, 0, -10000, 0, 0, 0))    # First three values are x, y, z coordinates 
         self.world_config.add_plugin(person_config)
 
@@ -383,6 +521,7 @@ class SimulationRunner:
 
         # Set camera properties
         photo_shoot_config.set_direct_thermal_factor(self.direct_sun)  # direct sunlight - TODO (0 - 64, will be discussed) 
+        # photo_shoot_config.set_indirect_thermal_factor(i)  # indirect sunlight - ambient temperature is not used, instead i using this to communicate with the c++ code to determine what is the min tree temp
         photo_shoot_config.set_save_rgb(False)
         photo_shoot_config.set_save_thermal(True)
         photo_shoot_config.set_save_depth(False)
@@ -447,7 +586,6 @@ class SimulationRunner:
             655,#self.max_ground_temp_K # Minimal # Maximal temperature in Kelvin
         )
 
-        # still in discussion (3 or 4 degress less then env. temperature)
         forest_config.set_trunk_temperature(self.x_Tree_temp)  # In Kelvin
         forest_config.set_twigs_temperature(self.x_Tree_temp)  # In Kelvin
 
@@ -456,9 +594,6 @@ class SimulationRunner:
         forest_config.set_texture_size(37)
 
         forest_config.set_trees(self.x_rand_treeNum)
-        
-        ###################### mona
-        # forest_config.set_seed(self.seed)
         forest_config.set_seed(self.test_seed)
 
         
@@ -506,7 +641,7 @@ class SimulationRunner:
         launcher.set_launch_config("running", True)
         launcher.set_launch_config("iterations", 2)
         launcher.set_launch_config("world", self.world_file_out)
-        print(launcher.launch())
+        launcher.launch()
 
     def compute_integral_image(self):
         pass
@@ -526,8 +661,6 @@ class SimulationRunner:
                         f"Selected thermal texture: {self.thermal_texture}\n" 
                         f"Number of trees per (37x37): {self.x_rand_treeNum} / {round(self.x_rand_treeNum * 7.3)} \n"
                         f"Direct lightsun effect: {self.direct_sun}\n"
-                        f"Added lightsun effect based on the Azimuth angle: {round(self.direct_sun * math.cos(self.x_rand_Alpha_rad))}\n"
-                        f"Azimuth angle (Alpha) in degrees: {self.x_rand_Alpha}\n"
                         f"Tree top temperature: {self.x_rand_Tree_C}°C / {self.x_Tree_temp}K")
 
 
@@ -565,24 +698,16 @@ class SimulationRunner:
         self.world_config = WorldConfig()
         self.world_config.load(self.world_file_in)
 
-        # Use the same random parameters generated before
-        # Configure light and scene with the same parameters
         self.configure_light_and_scene()
 
         self.configure_photo_shoot_ground_truth()
-
-        # Remove forest by setting trees to zero
         self.configure_forest_ground_truth()
-
-        # Save the world configuration
         self.save_world_config()
-
-        # Launch the simulation
         self.launch_simulation()
 
     def configure_photo_shoot_ground_truth(self):
         person_config = PersonConfig()
-        person_config.set_model_pose("idle")                 # Must match a .dae mesh file                                # in the respective model!
+        person_config.set_model_pose("idle")              
         person_config.set_temperature(293)                      # In Kelvin
         person_config.set_pose(gzm.Pose3d(0, 0, -1000, 0, 0, 0))    # First three values are x, y, z coordinates 
         self.world_config.add_plugin(person_config)
@@ -597,13 +722,12 @@ class SimulationRunner:
         photo_shoot_config.set_prefix(img_Name)
 
         # Set camera properties as before
-        photo_shoot_config.set_direct_thermal_factor(self.direct_sun)  # direct sunlight TODO
+        photo_shoot_config.set_direct_thermal_factor(self.direct_sun)
 
         photo_shoot_config.set_save_rgb(False)
         photo_shoot_config.set_save_thermal(True)
         photo_shoot_config.set_save_depth(False)
 
-        # Set only one pose at (0,0,35)
         pose = gzm.Pose3d(0, 0, 35.0, 0.0, 1.57079632679, 0.0)
         photo_shoot_config.add_pose(pose)
 
@@ -638,5 +762,3 @@ if __name__ == "__main__":
     simulation_runner = SimulationRunner()
     simulation_runner.run()
     print(time.time() - ttime)
-    print(f"Uniform texture count {simulation_runner.uniform_texture_count}")
-    print(f"normal texture count {simulation_runner.normal_texture_count}")

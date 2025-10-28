@@ -68,8 +68,8 @@ def read_img_cv2(path):
 if __name__ == "__main__":
     
     row_list = []
-    root = Path(r'D:\Research\Wild Fire - Project\Evaluation Metric\1D\Fixed Temp\Env_Temp_15')
-    saving_path = r'D:\Research\Wild Fire - Project\Evaluation Metric\1D\Fixed Temp\MIOU\integrall_label.csv'
+    root = Path(r'e:\Simulated_2D_grid\fixed_env')
+    saving_path = r'e:\Simulated_2D_grid\IOU\integral.csv'
     
     # root = Path(r'd:\Research\Wild Fire - Project\Evaluation Metric\1D\Fixed Temp\Env_Temp_15')
     # saving_path = r'd:\Research\Wild Fire - Project\Evaluation Metric\1D\Fixed Temp\MIOU\center_label.csv'
@@ -80,8 +80,8 @@ if __name__ == "__main__":
         for aos_folder in aos_folders:
             
             # Example usage
-            path1 = aos_folder / "label.png"
-            path2 = aos_folder / 'integrall_label.png'
+            path1 = aos_folder / "label_2.png"
+            path2 = aos_folder / 'integral.png'
 
             # Read both images (choose PIL or cv2 function)
             gt = read_img_cv2(str(path1))

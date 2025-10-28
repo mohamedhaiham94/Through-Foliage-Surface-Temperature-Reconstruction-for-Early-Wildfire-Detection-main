@@ -31,11 +31,11 @@ def to_Kelvin(img: torch.Tensor, min_temp, max_temp) -> torch.Tensor:
 
 @dataclass
 class config:
-    model_path: str = r'd:\Research\Wild Fire - Project\Evaluation Metric\large\2025-08-11_20-54-41(2D_11x11_grid)\checkpoints\scripted_model.pt'
-    dataset_path: str = r'D:\Research\Wild Fire - Project\Evaluation Metric\real_data\second\2D_grid\integral\integrals'
-    simulated: bool = True 
-    mean: float = 293.94543214751843
-    std: float = 10.677506857205497
+    model_path: str = r'd:\Research\Wild Fire - Project\Evaluation Metric\large\2D grid - 30_density - small_model\checkpoints\scripted_model.pt'
+    dataset_path: str = r'd:\Research\Wild Fire - Project\Evaluation Metric\real_data\person\2D\integral\integrals'
+    simulated: bool = False 
+    mean: float = 293.16448470479645
+    std: float = 10.74554895740844
 
 
     
@@ -66,18 +66,22 @@ if __name__ == '__main__':
         sub_folders = os.listdir(os.path.join(DIR, env_temp_folder))
         for sub_folder in sub_folders:
             for i in range(1):
-                f = open(os.path.join(DIR, env_temp_folder, sub_folder, 'global_min_max_temp.txt'))
-                min_temp, max_temp = map(float, f.read().split(','))
+
+                import time
+                
+                ftime = time.time()
                 
                 if conf.simulated:
+                    f = open(os.path.join(DIR, env_temp_folder, sub_folder, 'global_min_max_temp.txt'))
+                    min_temp, max_temp = map(float, f.read().split(','))                   
                     normalized_img_aos = to_Kelvin(load_image(os.path.join(DIR, env_temp_folder, sub_folder, 'integrall_normalized_0.png'), conf.simulated), min_temp, max_temp)
                 else:
-                    normalized_img_aos = load_image(os.path.join(DIR, env_temp_folder, sub_folder, 'Layer_1.tiff'), conf.simulated) + 273.15
+                    normalized_img_aos = load_image(os.path.join(DIR, env_temp_folder, sub_folder, 'Layer_1-15.tiff'), conf.simulated) + 273.15
                              
                 img1_norm = (normalized_img_aos - aos_mean) / aos_std
                         
                 # env_temp = torch.tensor([int(env_temp_folder)]).to(torch.int64).cuda()
-                env_temp = torch.tensor([int(12)]).to(torch.int64).cuda()
+                env_temp = torch.tensor([int(13)]).to(torch.int64).cuda()
 
                 # Model prediction
                 with torch.inference_mode():
@@ -90,7 +94,8 @@ if __name__ == '__main__':
                     img2_k = aos_std * img2_norm.cpu() + aos_mean
                     
                     if conf.simulated:                    
-                        Image.fromarray(img2_k[0, 0].cpu().numpy(), mode='F').save(os.path.join(DIR, env_temp_folder, sub_folder, f'corrected.tiff'))
+                        Image.fromarray(img2_k[0, 0].cpu().numpy(), mode='F').save(os.path.join(DIR, env_temp_folder, sub_folder, f'corrected_small.tiff'))
                     else:
-                        Image.fromarray(img2_k[0, 0].cpu().numpy() - 273.15, mode='F').save(os.path.join(DIR, env_temp_folder, sub_folder, f'corrected.tiff'))
+                        Image.fromarray(img2_k[0, 0].cpu().numpy() - 273.15, mode='F').save(os.path.join(DIR, env_temp_folder, sub_folder, f'corrected-test-time15.tiff'))
             
+                    print(time.time() - ftime)

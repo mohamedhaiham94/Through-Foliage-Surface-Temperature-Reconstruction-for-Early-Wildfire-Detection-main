@@ -57,7 +57,7 @@ def closing(x, ks=3, n_iter=5):
         x = F.max_pool2d(x, ks, 1, int(ks / 2))
     return -x[0, 0]
 
-
+'''
 def amb_temp_aug(
     img: Tensor,
     amb_temp: float,
@@ -74,8 +74,7 @@ def amb_temp_aug(
     fire_mask = img >= fire_thres_temp
 
     import matplotlib.pyplot as plt
-    # plt.imshow(fire_mask)
-    # plt.show()
+
 
     fire_mask = TF.gaussian_blur(fire_mask[None, None, ...].float(), 3)[0, 0]
     
@@ -86,18 +85,28 @@ def amb_temp_aug(
     
     #w/o fire augmentation
     w = F.sigmoid(alpha * y) - F.sigmoid(alpha * (y - fire_thres_temp))
-    x = w * delta_amb * amb_mask + y
+    x = (w * delta_amb * amb_mask + y) 
+
+    # equation to map range to another range [50 - 127.5] -> [50 - 53]
+    # y= c + (t−low(50)) * b(53)−a(50) / d(127.5)−c(50)​
+
+
+
+    scale = (53 - 50) / (127.75 - 50)
     
-    w2 = 4.8
-    x = (w2 * fire_mask * x) + x
     
-    # #with fire augmentation
-    # w = F.sigmoid(alpha * y)
-    # x = (w * delta_amb * amb_mask + y) 
+    stretched = np.where(img >= fire_thres_temp, 50 + (img - 50) * scale, img)
+        
+    
+    x1 = (w2 * fire_mask * y) + x
+    
+    # plt.imshow(x1)
+    # plt.show() 
+    # ghfhg
     
     #########################################
 
-    new_img = x
+    new_img = x1
 
     if delta_amb > 0.0:
         fire_mask = img >= fire_thres_temp
@@ -130,6 +139,68 @@ def amb_temp_aug(
         fire_mask = img >= fire_thres_temp
 
     return new_img
+'''
+
+
+def amb_temp_aug(
+    img: Tensor,
+    amb_temp: float,
+    max_sun_temp_inc: float,
+    new_amb_temp: float,
+    alpha: float = .5,  # smooth transitions!
+):
+    delta_amb = new_amb_temp - amb_temp
+
+    new_img = img.clone()
+    fire_thres_temp = amb_temp + max_sun_temp_inc
+    fire_mask = img >= fire_thres_temp
+    # equation to map range to another range [50 - 127.5] -> [50 - 53]
+    # y= c + (t−low(50)) * b(53)−a(50) / d(127.5)−c(50)​
+
+    fire_mask = TF.gaussian_blur(fire_mask[None, None, ...].float(), 3)[0, 0]
+
+    amb_mask = 1.0 - fire_mask
+
+    y = new_img
+    w = F.sigmoid(alpha * y) - F.sigmoid(alpha * (y - fire_thres_temp))
+    x = w * delta_amb * amb_mask + y 
+
+
+    x_1 = x
+    T_dash_max = 300
+    T_upper = new_amb_temp + max_sun_temp_inc
+    T_max = 98
+    scale = (T_dash_max - T_upper) / (T_max - T_upper)
+    new_img1 = np.where(x_1 >= T_upper, T_upper + (x_1 - T_upper) * scale, x_1)
+    
+    new_img2 = torch.from_numpy(new_img1)
+    new_img = new_img2
+
+    if delta_amb > 0.0:
+        fire_mask = img >= fire_thres_temp
+
+        kernel_size = 3
+        fm = fire_mask[None, None, :, :].float()  # 1x1xHxW
+
+        larger_fire_mask = F.max_pool2d(fm, kernel_size, 1, int(kernel_size / 2))
+        outer_fire_mask = larger_fire_mask - fm
+        outer_fire_mask = outer_fire_mask[0, 0, :, :] > 0.0  # HxW
+
+        avg_img = F.avg_pool2d(new_img[None, None, ...], kernel_size, 1, int(kernel_size / 2))[0, 0]
+        outer_avg_img = dilation(new_img * outer_fire_mask)
+        
+        larger_fire_mask = larger_fire_mask[0, 0] > 0.0
+        outer_avg_img = closing(new_img * outer_fire_mask)
+        valley_mask = F.relu(outer_avg_img - (avg_img * larger_fire_mask)) > 0.0
+
+        # fill valleys
+        mask = torch.logical_and(valley_mask, larger_fire_mask)
+        new_img[mask] = outer_avg_img[mask]
+    else:
+        fire_mask = img >= fire_thres_temp
+
+    return new_img
+
 
 
 def load_image_pil(path: str, grayscale: bool = True) -> torch.Tensor:
@@ -149,19 +220,9 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
-    # parser.add_argument("datadir", type=Path, help="Directory to .TIF files")
-    # parser.add_argument("targetdir", type=Path, help="Directory to save new targets")
-    # parser.add_argument("--newdatadir", type=Path, default=None, help="Directory to save new .TIF files")
-    # parser.add_argument("--amb_temp", type=float, default=9, help="Ambient temp. of original data")
-    # parser.add_argument("--max_sun_temp_inc", type=float, default=15, help="How much hotter can bio mass be under sunlight")
-    # parser.add_argument("--new_amb_temp", type=float, default=20, help="The new ambient temp. to simulate new data")
-    # parser.add_argument("--max_amb_temp", type=float, default=30, help="Clip increase by new ambient temp. here")
-    # parser.add_argument("--upper_fire_thres_temp", type=float, default=60, help="Above this temp. it is fire for sure")
-    # parser.add_argument("--num_workers", type=int, default=4)
-    # args = parser.parse_args()
+    DIR = r'e:\Simulated_1D_grid\Augmented_fire_simulation\Batch-1'
 
-    DIR = r'd:\Research\Wild Fire - Project\Data\Fire Images'
-    mode = False #True means generate label, False means augment temp
+    mode = True #True means generate label, False means augment temp
     
     
     env_temp_folders = os.listdir(DIR)
@@ -183,17 +244,18 @@ if __name__ == "__main__":
                 tgt = build_semantic_segmentation_target(
                     ((corrected_image) - 273.15), new_fire_thres_temp, upper_fire_thres_temp
                 )
-                Image.fromarray(tgt.cpu().numpy()).save(os.path.join(DIR, env_temp_folder, sub_folder, 'label_2.png'))
+                Image.fromarray(tgt.cpu().numpy()).save(os.path.join(DIR, env_temp_folder, sub_folder, 'label.png'))
+                
     else:
         
-        for i in range(31):
+        for i in range(1):
             
             GT_image = os.path.join(r'd:\Research\Wild Fire - Project\Evaluation Metric\augmented_image\input_image\0000092.TIF')
             corrected_image = load_image_pil(GT_image)
-            augmented_img = amb_temp_aug(corrected_image, amb_temp=9, max_sun_temp_inc=15, new_amb_temp=i)
+            augmented_img = amb_temp_aug(corrected_image, amb_temp=9, max_sun_temp_inc=15, new_amb_temp=9)
             Image.fromarray(augmented_img.cpu().numpy()).save(os.path.join(
-                                                                           r'd:\Research\Wild Fire - Project\Evaluation Metric\augmented_image\augmented_imgs_updated', 
-                                                                           f'{str(i)}.tiff'))
+                                                                           r'd:\Research\Wild Fire - Project\Evaluation Metric\augmented_image\fire_pixels_augmented_imgs', 
+                                                                           f'{str(i + 53)}.tiff'))
 
         
   

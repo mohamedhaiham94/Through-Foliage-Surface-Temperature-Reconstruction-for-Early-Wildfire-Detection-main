@@ -6,8 +6,8 @@ import cv2
 # Initialize the Thermal object
 thermal = Thermal(dtype=np.float32)
 
-DIR = r'd:\Research\Wild Fire - Project\Evaluation Metric\real_data\second\DJI_202508281913_004_AOS1JKU\Thermal'
-OUT = r'd:\Research\Wild Fire - Project\Evaluation Metric\real_data\second\DJI_202508281913_004_AOS1JKU\Thermal_temp'
+DIR = r'd:\Research\Wild Fire - Project\Evaluation Metric\real_data\person\data\Thermal'
+OUT = r'd:\Research\Wild Fire - Project\Evaluation Metric\real_data\person\data\Thermal_temp'
 IMGS = os.listdir(DIR)
 
 for img in IMGS:
@@ -19,7 +19,7 @@ for img in IMGS:
 
     # Check if the temperature is an instance of np.ndarray
     test = isinstance(temperature, np.ndarray)
-    print(test)
+    # print(test)
     assert isinstance(temperature, np.ndarray)
 
     # Find and print the min and max temperatures

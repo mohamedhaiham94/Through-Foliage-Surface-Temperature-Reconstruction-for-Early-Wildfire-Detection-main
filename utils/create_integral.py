@@ -66,10 +66,10 @@ def save_image(array, output_path):
 
 
 def main():
-    INPUT1 = r"d:\Research\Wild Fire - Project\Evaluation Metric\real_data\sparse_data\1D_grid\integral_vertical\variance\alpha_0"
-    INPUT = r"d:\Research\Wild Fire - Project\Evaluation Metric\real_data\sparse_data\1D_grid\data\channels\recovered_temp_vertical"
+    INPUT1 = r"d:\Research\Wild Fire - Project\Evaluation Metric\real_data\person\1D Horizontal\integral\variance\alpha_0"
+    INPUT = r"d:\Research\Wild Fire - Project\Evaluation Metric\real_data\person\1D Horizontal\channels\results_temp-20"
 
-    OUT = r"D:\Research\Wild Fire - Project\Evaluation Metric\real_data\sparse_data\1D_grid\integral_vertical\integrals\New folder\1\Layer_1.tiff"
+    OUT = r"d:\Research\Wild Fire - Project\Evaluation Metric\real_data\person\1D Horizontal\integral\integrals\New folder - Copy\1024\Layer_1.tiff"
 
     imgs, alpha = load_images_from_folder(INPUT, INPUT1)
     if not imgs:

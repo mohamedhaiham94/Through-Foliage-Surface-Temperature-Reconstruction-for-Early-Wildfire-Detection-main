@@ -27,14 +27,14 @@ def tone_mapping(
 
 if __name__ == "__main__":
 
-    base_path = r'D:\Research\Wild Fire - Project\Evaluation Metric\generated_vs_real'
-    real_images_path = os.path.join(base_path, "real_2")
-    generated_images_path = os.path.join(base_path, "generated")
-    results_path = os.path.join(base_path, "results-colorcoded")
+    base_path = r'D:\Research\Wild Fire - Project\Evaluation Metric\augmented_image'
+    real_images_path = os.path.join(base_path, "fire_pixels_augmented_imgs")
+    generated_images_path = os.path.join(base_path, "fire_pixels_augmented_imgs")
+    results_path = os.path.join(base_path, "fire_pixels_augmented_imgs_colorcoded")
     os.makedirs(results_path, exist_ok=True)
 
     real_files = sorted(glob.glob(real_images_path+ '/*.tiff'),key=numericalSort)
-    generated_files = sorted(glob.glob(generated_images_path+ '/*.tif'),key=numericalSort)
+    generated_files = sorted(glob.glob(generated_images_path+ '/*.tiff'),key=numericalSort)
 
 
     real_images, generated_images = [], []
